@@ -40,7 +40,7 @@ class Coin(pygame.sprite.Sprite):
         self,
         center: tuple[int, int],
         *,
-        hitbox_size: int = 18,
+        hitbox_size: int = 36,
         visual_size: int = 30,
         color: pygame.Color,
     ) -> None:
@@ -170,7 +170,6 @@ class Game:
         self.big_font = pygame.font.SysFont(None, 40)
 
         #initialize sfx
-        
         base_path = Path(__file__).parent
         #Coin sfx comes from freesoundsite.com
         self.coin_sfx = pygame.mixer.Sound(str(base_path / "media" / "coin_sfx.mp3"))
@@ -353,7 +352,7 @@ class Game:
             return
 
         self.player.hp -= 1
-        self.player.invincible_for = 0.85
+        self.player.invincible_for = 0.75
         self.hurt_sfx.play()
 
         push = pygame.Vector2(self.player.rect.center) - pygame.Vector2(source_rect.center)

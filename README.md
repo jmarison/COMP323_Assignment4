@@ -18,9 +18,21 @@ From this folder:
 - Arrow keys / WASD: move
 - `F1`: toggle debug (hitboxes)
 - `R`: reset
+- `Space` : Restart after win/lose
 - `Esc`: quit
 
 ## What to change first
 - Make the coin smaller/bigger (hitbox vs art) in `sprites_collisions/game.py`
 - Change the arena walls layout
 - Try different knockback + i-frame timing
+
+## What I added
+- Redesigned map layout 
+- Implemented a locked goal (blue) which only becomes unlocked (green) after collecting all 7 coins
+- Sound Effects on coin pickup, goal unlock, and game win
+- Hazards move both vertically and horizontally
+- Win state on reaching unlocked goal
+- Gave coin more generous hitbox
+
+## Game Loop
+- The player is tasked with collecting all 7 coins and returning back to the goal while avoiding hazards. Hazards reduce player's health upon collision and if they take all health, its a game over. 
