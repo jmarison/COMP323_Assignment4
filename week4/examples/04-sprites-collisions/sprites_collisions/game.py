@@ -56,6 +56,8 @@ class Hazard(pygame.sprite.Sprite):
         size: int = 28,
         color: pygame.Color,
         patrol_dx: int = 140,
+        #horizontal = false, verticle = true
+        isVerticle: bool = False,
         speed: float = 180.0,
     ) -> None:
         super().__init__()
@@ -65,20 +67,35 @@ class Hazard(pygame.sprite.Sprite):
 
         self.home = pygame.Vector2(center)
         self.patrol_dx = patrol_dx
+        self.isVerticle = isVerticle
         self.speed = speed
 
         self.direction = 1
 
     def update(self, dt: float) -> None:
-        x = self.rect.centerx + self.direction * self.speed * dt
-        if x < self.home.x - self.patrol_dx:
-            x = self.home.x - self.patrol_dx
-            self.direction = 1
-        elif x > self.home.x + self.patrol_dx:
-            x = self.home.x + self.patrol_dx
-            self.direction = -1
-
-        self.rect.centerx = int(x)
+       
+        
+       
+        if self.isVerticle == False:
+            x = self.rect.centerx + self.direction * self.speed * dt
+            if x < self.home.x - self.patrol_dx:
+                x = self.home.x - self.patrol_dx
+                self.direction = 1
+            elif x > self.home.x + self.patrol_dx:
+                x = self.home.x + self.patrol_dx
+                self.direction = -1
+            self.rect.centerx = int(x)
+        else:
+            y = self.rect.centery + self.direction * self.speed * dt
+            if y < self.home.y - self.patrol_dx:
+                y = self.home.y - self.patrol_dx
+                self.direction = 1
+            elif y > self.home.y + self.patrol_dx:
+                y = self.home.y + self.patrol_dx
+                self.direction = -1
+            self.rect.centery = int(y)
+        
+       
 
 
 class Player(pygame.sprite.Sprite):
@@ -168,14 +185,24 @@ class Game:
         add_wall(pygame.Rect(self.playfield.right - t, self.playfield.top, t, self.playfield.height))
 
         # Interior walls (solid)
-        add_wall(pygame.Rect(self.playfield.left + 120, self.playfield.top + 90, 18, 280))
-        add_wall(pygame.Rect(self.playfield.left + 380, self.playfield.top + 40, 18, 240))
-        add_wall(pygame.Rect(self.playfield.left + 540, self.playfield.top + 220, 240, 18))
+        add_wall(pygame.Rect(self.playfield.left + 400, self.playfield.top + 145, 125, 18))
+        add_wall(pygame.Rect(self.playfield.left + 650, self.playfield.top + 145, 125, 18))
+        add_wall(pygame.Rect(self.playfield.left + 150, self.playfield.top + 200, 125, 18))
+        add_wall(pygame.Rect(self.playfield.left, self.playfield.top + 300, 650, 18))
+        add_wall(pygame.Rect(self.playfield.left + 750, self.playfield.top + 355, 90, 18))
+        
 
         # Hazards (damage)
-        h1 = Hazard((self.playfield.centerx + 180, self.playfield.centery - 80), color=self.palette.hazard)
+        h1 = Hazard(
+            (self.playfield.left + 587, 
+             self.playfield.top + 150), 
+             color=self.palette.hazard,
+             patrol_dx = 75,
+             isVerticle = True,
+             speed = 200.0
+             )
         h2 = Hazard(
-            (self.playfield.centerx - 140, self.playfield.centery + 140),
+            (self.playfield.centerx - 140, self.playfield.centery + 160),
             color=self.palette.hazard,
             patrol_dx=110,
             speed=220.0,
