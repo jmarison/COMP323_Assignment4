@@ -29,7 +29,7 @@ From this folder:
 ## What I added
 - Redesigned map layout 
 - Implemented a locked goal (blue) which only becomes unlocked (green) after collecting all 7 coins
-- Sound Effects on coin pickup, goal unlock, and game win
+- Sound Effects on coin pickup, goal unlock, player hit, and game win
 - Hazards move both vertically and horizontally
 - Win state on reaching unlocked goal
 - Gave coin more generous hitbox
