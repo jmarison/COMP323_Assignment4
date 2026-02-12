@@ -487,7 +487,7 @@ class Game:
             self._draw_debug(cam)
 
         if self.state == "title":
-            self._draw_center_message("Sprites + Collisions\nPress Space to start", cam)
+            self._draw_center_message("Sprites + Collisions\nCollect all coins to unlock Goal and win!\nPress Space to start", cam)
         elif self.state == "gameover":
             self._draw_center_message("Game over\nPress Space to restart", cam)
         elif self.state == "win":
