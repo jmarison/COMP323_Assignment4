@@ -5,6 +5,7 @@ from sprites_collisions.game import Game
 
 def main() -> None:
     pygame.init()
+    pygame.mixer.init()
     pygame.display.set_caption("Week 4 Sprites + Collisions (Pygame)")
 
     game = Game()

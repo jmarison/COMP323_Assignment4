@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from pathlib import Path
+
 import random
 
 import pygame
@@ -18,6 +20,8 @@ class Palette:
     coin: pygame.Color = field(default_factory=lambda: pygame.Color("#ebcb8b"))
     hazard: pygame.Color = field(default_factory=lambda: pygame.Color("#bf616a"))
     wall: pygame.Color = field(default_factory=lambda: pygame.Color("#4c566a"))
+    goal: pygame.Color = field(default_factory=lambda: pygame.Color("#49bb49"))
+    goal_locked: pygame.Color = field(default_factory=lambda: pygame.Color("#5b8eda"))
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -47,6 +51,28 @@ class Coin(pygame.sprite.Sprite):
         self.visual_size = visual_size
         self.color = color
 
+class Goal(pygame.sprite.Sprite):
+    def __init__(
+            self,
+            center: tuple[int, int],
+            *,
+            hitbox_size: int = 25,
+            visual_size: int = 30,
+            color: pygame.Color,
+            locked_color: pygame.Color,
+            locked: bool = True,
+            coins_needed: int = 7
+  
+    ) -> None:
+        super().__init__()
+        self.rect = pygame.Rect(0,0, hitbox_size, hitbox_size)
+        self.rect.center = center
+        self.visual_size = visual_size
+        self.color = color
+        self.locked_color = locked_color
+        self.locked = locked
+        self.coins_needed = coins_needed
+    
 
 class Hazard(pygame.sprite.Sprite):
     def __init__(
@@ -56,8 +82,8 @@ class Hazard(pygame.sprite.Sprite):
         size: int = 28,
         color: pygame.Color,
         patrol_dx: int = 140,
-        #horizontal = false, verticle = true
-        isVerticle: bool = False,
+        # determines whether the hazard moves horizontally or vertically
+        isVertical: bool = False,
         speed: float = 180.0,
     ) -> None:
         super().__init__()
@@ -67,7 +93,7 @@ class Hazard(pygame.sprite.Sprite):
 
         self.home = pygame.Vector2(center)
         self.patrol_dx = patrol_dx
-        self.isVerticle = isVerticle
+        self.isVertical = isVertical
         self.speed = speed
 
         self.direction = 1
@@ -76,7 +102,7 @@ class Hazard(pygame.sprite.Sprite):
        
         
        
-        if self.isVerticle == False:
+        if self.isVertical == False:
             x = self.rect.centerx + self.direction * self.speed * dt
             if x < self.home.x - self.patrol_dx:
                 x = self.home.x - self.patrol_dx
@@ -106,6 +132,7 @@ class Player(pygame.sprite.Sprite):
         hitbox_size: int = 28,
         visual_size: int = 38,
         color: pygame.Color,
+        
     ) -> None:
         super().__init__()
         self.rect = pygame.Rect(0, 0, hitbox_size, hitbox_size)
@@ -114,14 +141,15 @@ class Player(pygame.sprite.Sprite):
         self.visual_size = visual_size
         self.color = color
 
+        
+
         self.vel = pygame.Vector2(0, 0)
         self.speed = 320.0
 
         self.hp = 3
         self.invincible_for = 0.0
 
-        self.score = 0
-
+        self.score = 0 
     @property
     def is_invincible(self) -> bool:
         return self.invincible_for > 0
@@ -141,6 +169,22 @@ class Game:
         self.font = pygame.font.SysFont(None, 22)
         self.big_font = pygame.font.SysFont(None, 40)
 
+        #initialize sfx
+        
+        base_path = Path(__file__).parent
+        #Coin sfx comes from freesoundsite.com
+        self.coin_sfx = pygame.mixer.Sound(str(base_path / "media" / "coin_sfx.mp3"))
+        self.coin_sfx.set_volume(0.5)
+        #Goal sfx comes from pixabay.com
+        self.goal_sfx = pygame.mixer.Sound(str(base_path / "media" / "goal_sfx.mp3"))
+        self.goal_sfx.set_volume(0.4)
+        #Victory sfx from pixabay.com
+        self.victory_sfx = pygame.mixer.Sound(str(base_path / "media" / "victory_sfx.mp3"))
+        self.victory_sfx.set_volume(0.5)
+        #Hurt sfx also from pixabay.com
+        self.hurt_sfx = pygame.mixer.Sound(str(base_path / "media" / "hurt_sfx.mp3"))
+        self.hurt_sfx.set_volume(0.5)
+
         self.screen_rect = pygame.Rect(0, 0, self.SCREEN_W, self.SCREEN_H)
         self.playfield = pygame.Rect(
             self.PADDING,
@@ -148,14 +192,14 @@ class Game:
             self.SCREEN_W - 2 * self.PADDING,
             self.SCREEN_H - self.HUD_H - 2 * self.PADDING,
         )
-
         self.debug = False
-        self.state = "title"  # title | play | gameover
+        self.state = "title"  # title | play | gameover | win
 
         self.all_sprites: pygame.sprite.Group[pygame.sprite.Sprite] = pygame.sprite.Group()
         self.walls: pygame.sprite.Group[Wall] = pygame.sprite.Group()
         self.coins: pygame.sprite.Group[Coin] = pygame.sprite.Group()
         self.hazards: pygame.sprite.Group[Hazard] = pygame.sprite.Group()
+        self.goals: pygame.sprite.Group[Goal] = pygame.sprite.Group()
 
         self.player = Player(self.playfield.center, color=self.palette.player)
         self.all_sprites.add(self.player)
@@ -168,8 +212,9 @@ class Game:
         self.walls.empty()
         self.coins.empty()
         self.hazards.empty()
+        self.goals.empty()
 
-        self.player = Player(self.playfield.center, color=self.palette.player)
+        self.player = Player((self.playfield.left + 75, self.playfield.top + 380), color=self.palette.player)
         self.all_sprites.add(self.player)
 
         def add_wall(r: pygame.Rect) -> None:
@@ -186,8 +231,9 @@ class Game:
 
         # Interior walls (solid)
         add_wall(pygame.Rect(self.playfield.left + 400, self.playfield.top + 145, 125, 18))
-        add_wall(pygame.Rect(self.playfield.left + 650, self.playfield.top + 145, 125, 18))
+        add_wall(pygame.Rect(self.playfield.left + 650, self.playfield.top + 145, 275, 18))
         add_wall(pygame.Rect(self.playfield.left + 150, self.playfield.top + 200, 125, 18))
+        add_wall(pygame.Rect(self.playfield.left + 150, self.playfield.top + 100, 125, 18))
         add_wall(pygame.Rect(self.playfield.left, self.playfield.top + 300, 650, 18))
         add_wall(pygame.Rect(self.playfield.left + 750, self.playfield.top + 355, 90, 18))
         
@@ -198,37 +244,45 @@ class Game:
              self.playfield.top + 150), 
              color=self.palette.hazard,
              patrol_dx = 75,
-             isVerticle = True,
+             isVertical = True,
              speed = 200.0
              )
         h2 = Hazard(
-            (self.playfield.centerx - 140, self.playfield.centery + 160),
+            (self.playfield.left + 200, self.playfield.top + 255),
             color=self.palette.hazard,
-            patrol_dx=110,
-            speed=220.0,
+            patrol_dx= 160,
+            speed=200.0,
         )
-        self.hazards.add(h1, h2)
-        self.all_sprites.add(h1, h2)
+        h3 = Hazard(
+            (self.playfield.left + 200, self.playfield.top + 55),
+            color=self.palette.hazard,
+            patrol_dx= 160,
+            speed= 200.0,
+
+        )
+        goal = Goal(
+            (self.playfield.left + 75, self.playfield.top + 380),  
+            color = self.palette.goal,
+            locked_color= self.palette.goal_locked,
+            locked= True,
+            coins_needed = 7
+        )
+        self.goals.add(goal)
+        self.hazards.add(h1, h2, h3)
+        self.all_sprites.add(h1, h2, h3, goal)
 
         # Coins (trigger)
-        rng = random.Random(4)
-        for _ in range(8):
-            for __ in range(100):
-                x = rng.randint(self.playfield.left + 40, self.playfield.right - 40)
-                y = rng.randint(self.playfield.top + 40, self.playfield.bottom - 40)
-                candidate = Coin((x, y), color=self.palette.coin)
-
-                if pygame.sprite.spritecollideany(candidate, self.walls):
-                    continue
-                if pygame.sprite.spritecollideany(candidate, self.coins):
-                    continue
-                if candidate.rect.colliderect(self.player.rect):
-                    continue
-
-                self.coins.add(candidate)
-                self.all_sprites.add(candidate)
-                break
-
+        c1 = Coin((self.playfield.left + 275, self.playfield.top + 380), color=self.palette.coin)
+        c2 = Coin((self.playfield.left + 500, self.playfield.top + 380), color=self.palette.coin)
+        c3 = Coin((self.playfield.left + 795, self.playfield.top + 250), color=self.palette.coin)
+        c4 = Coin((self.playfield.left + 790, self.playfield.top + 70), color=self.palette.coin)
+        c5 = Coin((self.playfield.left + 340, self.playfield.top + 155), color=self.palette.coin)
+        c6 = Coin((self.playfield.left + 75, self.playfield.top + 57), color=self.palette.coin)
+        c7 = Coin((self.playfield.left + 75, self.playfield.top + 255), color=self.palette.coin)
+        
+        self.coins.add(c1,c2,c3,c4,c5,c6,c7)
+        self.all_sprites.add(c1,c2,c3,c4,c5,c6,c7)
+ 
         if not keep_state:
             self.state = "play"
 
@@ -248,7 +302,7 @@ class Game:
             self._reset_level(keep_state=(self.state == "title"))
             return
 
-        if self.state in {"title", "gameover"} and event.key == pygame.K_SPACE:
+        if self.state in {"title", "gameover", "win"} and event.key == pygame.K_SPACE:
             self._reset_level(keep_state=True)
             self.state = "play"
 
@@ -300,6 +354,7 @@ class Game:
 
         self.player.hp -= 1
         self.player.invincible_for = 0.85
+        self.hurt_sfx.play()
 
         push = pygame.Vector2(self.player.rect.center) - pygame.Vector2(source_rect.center)
         if push.length_squared() == 0:
@@ -310,7 +365,15 @@ class Game:
         self._shake = 0.18
 
         if self.player.hp <= 0:
+ 
             self.state = "gameover"
+
+    def _check_goal(self) -> None:
+        for goal in self.goals:
+            if goal.locked and self.player.score >= goal.coins_needed:
+                goal.locked = False
+                self.goal_sfx.play()
+            
 
     def update(self, dt: float) -> None:
         if self._shake > 0:
@@ -330,6 +393,8 @@ class Game:
         picked = pygame.sprite.spritecollide(self.player, self.coins, dokill=True)
         if picked:
             self.player.score += len(picked)
+            self.coin_sfx.play()
+            self._check_goal()
 
         # Hazards: damage + response
         for hz in pygame.sprite.spritecollide(self.player, self.hazards, dokill=False):
@@ -340,10 +405,10 @@ class Game:
         if self.player.invincible_for > 0:
             self.player.invincible_for = max(0.0, self.player.invincible_for - dt)
 
-        if len(self.coins) == 0:
-            # Quick win condition: respawn coins + hazards to keep playing
-            self._reset_level(keep_state=True)
-            self.state = "play"
+        for goal in pygame.sprite.spritecollide(self.player, self.goals, dokill=False):
+            if not goal.locked:
+                self.victory_sfx.play()
+                self.state = "win"
 
     def _camera_offset(self) -> pygame.Vector2:
         if self._shake <= 0:
@@ -367,7 +432,7 @@ class Game:
             1,
         )
 
-        hud = f"Score: {self.player.score}    HP: {self.player.hp}"
+        hud = f"Coins Collected: {self.player.score}    HP: {self.player.hp}"
         if self.player.is_invincible:
             hud += "    i-frames"
 
@@ -397,6 +462,15 @@ class Game:
             pygame.draw.polygon(self.screen, hazard.color, pts)
             pygame.draw.polygon(self.screen, pygame.Color("#000000"), pts, 2)
 
+        # Draw Goal
+        for goal in self.goals:
+            visual = pygame.Rect(0, 0, goal.visual_size, goal.visual_size)
+            visual.center = goal.rect.center
+            color = goal.color if not goal.locked else goal.locked_color
+            pygame.draw.rect(self.screen, color, goal.rect.move(cam))
+            pygame.draw.rect(self.screen, pygame.Color("#000000"), goal.rect.move(cam), 2)
+            
+
         # Draw player (bigger art than hitbox)
         pr = self.player.rect.move(cam)
         visual = pygame.Rect(0, 0, self.player.visual_size, self.player.visual_size)
@@ -416,15 +490,19 @@ class Game:
             self._draw_center_message("Sprites + Collisions\nPress Space to start", cam)
         elif self.state == "gameover":
             self._draw_center_message("Game over\nPress Space to restart", cam)
+        elif self.state == "win":
+            self._draw_center_message("You Win!\nPress Space to play again", cam)
 
     def _draw_debug(self, cam: pygame.Vector2) -> None:
         # Hitboxes
         pygame.draw.rect(self.screen, pygame.Color("#8fbcbb"), self.player.rect.move(cam), 2)
+        for goal in self.goals:
+            pygame.draw.rect(self.screen, pygame.Color("#4b1a8b"), goal.rect.move(cam), 2)
         for coin in self.coins:
             pygame.draw.rect(self.screen, pygame.Color("#ebcb8b"), coin.rect.move(cam), 2)
         for hazard in self.hazards:
             pygame.draw.rect(self.screen, pygame.Color("#bf616a"), hazard.rect.move(cam), 2)
-
+        
         # Help text
         self.screen.blit(
             self.font.render("DEBUG: Rect hitboxes (collisions use these)", True, self.palette.text),
