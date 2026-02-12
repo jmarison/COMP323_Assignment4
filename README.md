@@ -20,6 +20,7 @@ From this folder:
 - `R`: reset
 - `Space` : Restart after win/lose
 - `Esc`: quit
+- `M`: toggle Mute
 
 ## What to change first
 - Make the coin smaller/bigger (hitbox vs art) in `sprites_collisions/game.py`
@@ -29,7 +30,7 @@ From this folder:
 ## What I added
 - Redesigned map layout 
 - Implemented a locked goal (blue) which only becomes unlocked (green) after collecting all 7 coins
-- Sound Effects on coin pickup, goal unlock, player hit, and game win
+- Toggleable Sound Effects (muted with `M`) on coin pickup, goal unlock, player hit, and game win
 - Hazards move both vertically and horizontally
 - Win state on reaching unlocked goal
 - Gave coin more generous hitbox

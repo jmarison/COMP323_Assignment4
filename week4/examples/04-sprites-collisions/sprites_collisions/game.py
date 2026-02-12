@@ -99,9 +99,7 @@ class Hazard(pygame.sprite.Sprite):
         self.direction = 1
 
     def update(self, dt: float) -> None:
-       
-        
-       
+    #Conditional which determines axis of movement
         if self.isVertical == False:
             x = self.rect.centerx + self.direction * self.speed * dt
             if x < self.home.x - self.patrol_dx:
@@ -122,8 +120,6 @@ class Hazard(pygame.sprite.Sprite):
             self.rect.centery = int(y)
         
        
-
-
 class Player(pygame.sprite.Sprite):
     def __init__(
         self,
@@ -140,8 +136,6 @@ class Player(pygame.sprite.Sprite):
 
         self.visual_size = visual_size
         self.color = color
-
-        
 
         self.vel = pygame.Vector2(0, 0)
         self.speed = 320.0
@@ -183,6 +177,8 @@ class Game:
         #Hurt sfx also from pixabay.com
         self.hurt_sfx = pygame.mixer.Sound(str(base_path / "media" / "hurt_sfx.mp3"))
         self.hurt_sfx.set_volume(0.5)
+        #Toggleable Mute
+        self.muted = False
 
         self.screen_rect = pygame.Rect(0, 0, self.SCREEN_W, self.SCREEN_H)
         self.playfield = pygame.Rect(
@@ -259,6 +255,7 @@ class Game:
             speed= 200.0,
 
         )
+        # Goal (trigger)
         goal = Goal(
             (self.playfield.left + 75, self.playfield.top + 380),  
             color = self.palette.goal,
@@ -299,6 +296,10 @@ class Game:
 
         if event.key == pygame.K_r:
             self._reset_level(keep_state=(self.state == "title"))
+            return
+        
+        if event.key == pygame.K_m:
+            self.muted = not self.muted
             return
 
         if self.state in {"title", "gameover", "win"} and event.key == pygame.K_SPACE:
@@ -353,7 +354,8 @@ class Game:
 
         self.player.hp -= 1
         self.player.invincible_for = 0.75
-        self.hurt_sfx.play()
+        if not self.muted:
+            self.hurt_sfx.play()
 
         push = pygame.Vector2(self.player.rect.center) - pygame.Vector2(source_rect.center)
         if push.length_squared() == 0:
@@ -371,7 +373,8 @@ class Game:
         for goal in self.goals:
             if goal.locked and self.player.score >= goal.coins_needed:
                 goal.locked = False
-                self.goal_sfx.play()
+                if not self.muted:
+                    self.goal_sfx.play()
             
 
     def update(self, dt: float) -> None:
@@ -392,7 +395,8 @@ class Game:
         picked = pygame.sprite.spritecollide(self.player, self.coins, dokill=True)
         if picked:
             self.player.score += len(picked)
-            self.coin_sfx.play()
+            if not self.muted:
+                self.coin_sfx.play()
             self._check_goal()
 
         # Hazards: damage + response
@@ -406,7 +410,8 @@ class Game:
 
         for goal in pygame.sprite.spritecollide(self.player, self.goals, dokill=False):
             if not goal.locked:
-                self.victory_sfx.play()
+                if not self.muted:
+                    self.victory_sfx.play()
                 self.state = "win"
 
     def _camera_offset(self) -> pygame.Vector2:
@@ -434,6 +439,8 @@ class Game:
         hud = f"Coins Collected: {self.player.score}    HP: {self.player.hp}"
         if self.player.is_invincible:
             hud += "    i-frames"
+        if self.muted:
+             hud += "    [MUTED]"
 
         self.screen.blit(self.font.render(hud, True, self.palette.text), (14, 18))
         self.screen.blit(
